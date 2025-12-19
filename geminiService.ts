@@ -2,7 +2,17 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Story, CastMember, Genre, Mood, StoryPage, StoryStyle } from "./types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Creates a fresh instance of the Gemini API client.
+ * This prevents module-load crashes if process.env.API_KEY is missing at startup.
+ */
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please ensure process.env.API_KEY is set.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const generateStoryContent = async (
   genre: Genre,
@@ -12,6 +22,7 @@ export const generateStoryContent = async (
   plotPrompt: string,
   style: StoryStyle
 ): Promise<{ title: string; pages: StoryPage[] }> => {
+  const ai = getAI();
   const castStr = cast.map(c => `${c.name} as ${c.role}`).join(", ");
   
   const systemInstruction = `
@@ -61,6 +72,7 @@ export const generateStoryContent = async (
 };
 
 export const generateImageForPage = async (prompt: string, genre: Genre): Promise<string> => {
+  const ai = getAI();
   const enhancedPrompt = `High-end professional illustration. Scene: ${prompt}. Artistic influence from ${genre} aesthetics. High resolution, clear composition.`;
   
   try {
@@ -88,17 +100,18 @@ export const generateImageForPage = async (prompt: string, genre: Genre): Promis
 };
 
 /**
- * Strips Markdown characters to prevent TTS 500 errors caused by special formatting
+ * Strips Markdown characters to prevent TTS issues
  */
 const cleanTextForTTS = (text: string): string => {
   return text
-    .replace(/[*_#~`]/g, '') // Remove markdown symbols
-    .replace(/\s+/g, ' ')     // Normalize whitespace
+    .replace(/[*_#~`]/g, '') 
+    .replace(/\s+/g, ' ')     
     .trim()
-    .slice(0, 1000);          // Truncate to a safe length for preview models
+    .slice(0, 1000);          
 };
 
 export const generateNarration = async (text: string, mood: Mood, retries = 2): Promise<string | undefined> => {
+  const ai = getAI();
   const cleanedText = cleanTextForTTS(text);
   
   const voiceMap: Record<string, string> = {
@@ -132,10 +145,8 @@ export const generateNarration = async (text: string, mood: Mood, retries = 2): 
     } catch (error) {
       console.warn(`Narration attempt ${i + 1} failed:`, error);
       if (i === retries) {
-        console.error("Audio generation failed after all retries", error);
         return undefined;
       }
-      // Exponential backoff
       await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
   }

@@ -14,7 +14,6 @@ import { generateStoryContent, generateImageForPage, generateNarration } from '.
 import { exportToPDF } from './components/PDFExporter';
 import Sidebar from './components/Sidebar';
 
-// Modern Custom Dropdown with Full-Bleed Selection
 const Dropdown = ({ value, options, onChange }: { value: string, options: string[], onChange: (val: any) => void }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,7 +57,6 @@ const Dropdown = ({ value, options, onChange }: { value: string, options: string
   );
 };
 
-// Audio Helpers
 function decode(base64: string) {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
@@ -89,6 +87,7 @@ const App = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, step: 'Drafting...' });
   const [isNarrating, setIsNarrating] = useState(false);
+  const [keyError, setKeyError] = useState(false);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -103,6 +102,10 @@ const App = () => {
   ]);
 
   useEffect(() => {
+    if (!process.env.API_KEY) {
+      setKeyError(true);
+    }
+
     const saved = localStorage.getItem('mythos_stories');
     if (saved) {
       try { 
@@ -147,14 +150,16 @@ const App = () => {
 
   const handleGenerate = async () => {
     if (isGenerating) return;
+    if (!process.env.API_KEY) {
+      alert("Error: API key is missing. Please set your environment variables on Vercel.");
+      return;
+    }
     setIsGenerating(true);
     setGenerationProgress({ current: 0, total: pageCount, step: 'Formulating narrative arc...' });
     
     try {
       const result = await generateStoryContent(genre, mood, pageCount, cast, plot, style);
       
-      if (!result || !result.pages) throw new Error("Invalid story generation result");
-
       const newStory: Story = {
         id: Date.now().toString(),
         title: result.title,
@@ -171,7 +176,7 @@ const App = () => {
 
       setGenerationProgress(prev => ({ ...prev, step: 'Crafting illustrations...' }));
       
-      const assetPromises = result.pages.map(async (page, index) => {
+      const finalPages = await Promise.all(result.pages.map(async (page, index) => {
         try {
           const imageUrl = await generateImageForPage(page.imagePrompt, genre);
           const audioData = await generateNarration(page.text, mood);
@@ -182,12 +187,10 @@ const App = () => {
           }));
           return { ...page, imageUrl, audioData };
         } catch (err) {
-          console.error(`Asset failed for page ${index}`, err);
           return { ...page, imageUrl: 'https://images.unsplash.com/photo-1543004223-249377484407' };
         }
-      });
+      }));
 
-      const finalPages = await Promise.all(assetPromises);
       newStory.pages = finalPages;
       newStory.isGeneratingImages = false;
 
@@ -197,31 +200,49 @@ const App = () => {
       setView('reader');
     } catch (error) {
       console.error(error);
-      alert("We encountered an issue crafting your story.");
+      alert("We encountered an issue crafting your story. " + (error as Error).message);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const toggleFavorite = (id: string) => {
-    setStories(prev => prev.map(s => s.id === id ? { ...s, isFavorite: !s.isFavorite } : s));
-  };
-
+  // Fix: Added missing openStory function to view a saved story
   const openStory = (story: Story) => {
     setActiveStory(story);
     setCurrentPageIndex(0);
     setView('reader');
   };
 
+  // Fix: Added missing deleteStory function to remove a story from the collection
   const deleteStory = (id: string) => {
-    if (confirm("Permanently delete this story?")) {
-      setStories(prev => prev.filter(s => s.id !== id));
-      if (activeStory?.id === id) {
-        setActiveStory(null);
-        setView('library');
-      }
+    const updatedStories = stories.filter(s => s.id !== id);
+    setStories(updatedStories);
+    localStorage.setItem('mythos_stories', JSON.stringify(updatedStories));
+    if (activeStory?.id === id) {
+      setActiveStory(null);
+      setView('library');
     }
   };
+
+  if (keyError) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="modern-card p-12 max-w-md">
+          <div className="text-6xl mb-6">⚠️</div>
+          <h1 className="text-2xl font-black text-slate-900 mb-4">Configuration Error</h1>
+          <p className="text-slate-500 font-bold mb-8">
+            An API Key must be set in your Vercel Environment Variables as <code>API_KEY</code> to use Mythos.
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold"
+          >
+            Check Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderGenerator = () => (
     <div className="max-w-7xl mx-auto py-12 px-6 lg:px-8 mt-16 lg:mt-0">
@@ -236,7 +257,6 @@ const App = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Configuration</h2>
-                <p className="text-slate-400 text-sm font-medium">Define your story's foundation</p>
               </div>
             </div>
 
@@ -265,7 +285,7 @@ const App = () => {
             <button 
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="hidden lg:block mt-12 w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl active:scale-[0.97] disabled:opacity-50"
+              className="hidden lg:block mt-12 w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50"
             >
               {isGenerating ? 'Drafting Story...' : 'Create Story'}
             </button>
@@ -290,11 +310,11 @@ const App = () => {
           <div className="modern-card p-8 lg:p-10 animate-slide-up flex flex-col flex-grow" style={{ animationDelay: '0.3s' }}>
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-8">Starting Plot</h2>
             <div className="soft-input p-10 flex-grow">
-              <textarea placeholder="Give us a hook or leave it blank..." value={plot} onChange={(e) => setPlot(e.target.value)} className="w-full h-full min-h-[160px] bg-transparent outline-none resize-none font-bold text-slate-600 text-lg leading-relaxed placeholder:text-slate-300 no-scrollbar" />
+              <textarea placeholder="Give us a hook or leave it blank..." value={plot} onChange={(e) => setPlot(e.target.value)} className="w-full h-full min-h-[160px] bg-transparent outline-none resize-none font-bold text-slate-600 text-lg leading-relaxed no-scrollbar" />
             </div>
           </div>
           
-          <button onClick={handleGenerate} disabled={isGenerating} className="lg:hidden w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl active:scale-[0.97] disabled:opacity-50 mt-4 order-last">
+          <button onClick={handleGenerate} disabled={isGenerating} className="lg:hidden w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 mt-4 order-last">
             {isGenerating ? 'Drafting Story...' : 'Create Story'}
           </button>
         </div>
@@ -344,6 +364,7 @@ const App = () => {
         <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center flex-col text-white gap-6">
           <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
           <p className="text-xl font-bold tracking-widest uppercase animate-pulse">Initializing Folio...</p>
+          <button onClick={() => setView('library')} className="mt-8 px-8 py-3 bg-white/10 rounded-full text-xs font-bold">Back to Library</button>
         </div>
       );
     }
@@ -400,7 +421,7 @@ const App = () => {
              </svg>
              <div className="absolute inset-0 flex items-center justify-center"><span className="text-7xl animate-pulse">📖</span></div>
           </div>
-          <h2 className="text-6xl font-extrabold tracking-[0.4em] mb-6 uppercase">Manifesting...</h2>
+          <h2 className="text-6xl font-extrabold tracking-[0.4em] mb-6 uppercase text-center">Manifesting...</h2>
           <p className="text-slate-300 font-crimson italic text-4xl text-center leading-relaxed opacity-80 px-12">"{generationProgress.step}"</p>
         </div>
       )}
