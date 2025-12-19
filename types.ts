@@ -9,7 +9,7 @@ export interface StoryPage {
   text: string;
   imagePrompt: string;
   imageUrl?: string;
-  audioData?: string; // Base64 PCM data from TTS
+  audioData?: string; 
 }
 
 export interface Story {
@@ -60,4 +60,9 @@ export enum StoryStyle {
   Cyberpunk = 'Cyberpunk',
   Vintage = 'Vintage',
   ConceptArt = 'Concept Art'
+}
+
+export enum Voice {
+  Male = 'Narrator (Male)',
+  Female = 'Narrator (Female)'
 }

@@ -11,19 +11,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
-        --bg-color: #f6f8fa;
+        --bg-color: #fcfcfc;
         --card-bg: #ffffff;
-        --primary: #0f172a;
-        --border-color: #f1f3f6;
-        --text-secondary: #94a3b8;
+        --primary: #000000;
+        --border-color: #f1f1f1;
       }
 
       body {
         margin: 0;
         font-family: 'Plus Jakarta Sans', sans-serif;
         background-color: var(--bg-color);
-        color: #1e293b;
+        color: #111111;
         -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
       }
       
       .font-cinzel { font-family: 'Cinzel', serif; }
@@ -32,21 +32,20 @@
       .modern-card {
         background: var(--card-bg);
         border-radius: 2.5rem;
-        box-shadow: 0 10px 40px -15px rgba(0,0,0,0.03);
+        box-shadow: 0 4px 30px -10px rgba(0,0,0,0.03);
         border: 1px solid var(--border-color);
       }
 
       .soft-input {
-        background-color: #f8fafc;
+        background-color: #f9f9f9;
         border: 1px solid transparent;
-        border-radius: 1.25rem;
+        border-radius: 1.5rem;
         transition: all 0.2s ease;
       }
       
-      .soft-input:focus {
+      .soft-input:focus-within {
         background-color: #ffffff;
-        border-color: #e2e8f0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        border-color: #000000;
       }
 
       input[type=range] {
@@ -57,21 +56,21 @@
       input[type=range]:focus { outline: none; }
       input[type=range]::-webkit-slider-runnable-track {
         width: 100%;
-        height: 8px;
+        height: 4px;
         cursor: pointer;
-        background: #f1f5f9;
+        background: #eeeeee;
         border-radius: 10px;
       }
       input[type=range]::-webkit-slider-thumb {
-        height: 24px;
-        width: 24px;
+        height: 20px;
+        width: 20px;
         border-radius: 50%;
-        background: var(--primary);
+        background: #000000;
         cursor: pointer;
         -webkit-appearance: none;
         margin-top: -8px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        border: 4px solid #ffffff;
+        border: 3px solid #ffffff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       }
 
       .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -84,11 +83,11 @@
       .drop-cap::first-letter {
         float: left;
         font-family: 'Cinzel', serif;
-        font-size: 5rem;
-        line-height: 0.7;
+        font-size: 4.5rem;
+        line-height: 0.8;
         padding-top: 8px;
         padding-right: 12px;
-        color: var(--primary);
+        color: #000000;
       }
 
       @keyframes slideIn {
@@ -97,6 +96,11 @@
       }
       .animate-slide-up {
         animation: slideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      .loading-glass {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(16px);
       }
     </style>
   <script type="importmap">

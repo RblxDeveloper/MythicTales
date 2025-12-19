@@ -9,76 +9,111 @@ import {
   Mood, 
   StoryStyle,
   CastMember, 
-  StoryPage 
+  Voice 
 } from './types';
 import { generateStoryContent, generateImageForPage, generateNarration } from './geminiService';
 import { exportToPDF } from './components/PDFExporter';
 import Sidebar from './components/Sidebar';
 
-const Dropdown = ({ value, options, onChange }: { value: string, options: string[], onChange: (val: any) => void }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+const DB_NAME = 'MythosPersonalArchives';
+const STORE_NAME = 'chronicles';
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+const initDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 2);
+    request.onupgradeneeded = (e: any) => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const saveToDB = async (story: Story) => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(story);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+};
+
+const getFromDB = async (): Promise<Story[]> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const removeFromDB = async (id: string) => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = () => resolve(true);
+  });
+};
+
+const Dropdown = ({ label, value, options, onChange }: { label?: string, value: string, options: string[], onChange: (val: any) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => { 
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false); 
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   return (
-    <div className="relative w-full" ref={containerRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-slate-50 px-6 py-4 rounded-2xl text-sm font-bold text-slate-700 flex items-center justify-between hover:bg-slate-100 transition-all border border-transparent focus:border-slate-200 shadow-sm"
-      >
-        <span className="truncate uppercase tracking-wider">{value}</span>
-        <svg className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      
-      {isOpen && (
-        <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white shadow-[0_30px_60px_-12px_rgba(0,0,0,0.25)] rounded-[1.5rem] border border-slate-100 overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200 no-scrollbar max-h-72 overflow-y-auto">
-          {options.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => { onChange(opt); setIsOpen(false); }}
-              className={`w-full text-left px-6 py-4 text-sm font-bold transition-all block ${value === opt ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-            >
-              {opt.toUpperCase()}
-            </button>
-          ))}
-        </div>
+    <div className="flex flex-col gap-2 mb-5" ref={containerRef}>
+      {label && (
+        <label className="text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-[0.15em] ml-1">
+          {label}
+        </label>
       )}
+      <div className="relative">
+        <button 
+          onClick={() => setIsOpen(!isOpen)} 
+          className={`w-full bg-[#f8fafc] text-[#0f172a] px-5 py-4 rounded-[1.25rem] flex items-center justify-between font-bold text-[12px] transition-all border border-transparent hover:bg-white hover:border-slate-200 ${isOpen ? 'bg-white border-slate-200 shadow-sm' : ''}`}
+        >
+          <span className="tracking-wide">{value.toUpperCase()}</span>
+          <svg 
+            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#0d1117]' : ''}`} 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {isOpen && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white shadow-[0_15px_35px_-10px_rgba(0,0,0,0.12)] rounded-[1.25rem] border border-slate-100 overflow-hidden z-[150] animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="max-h-64 overflow-y-auto no-scrollbar">
+              {options.map((opt) => (
+                <button 
+                  key={opt} 
+                  onClick={() => { onChange(opt); setIsOpen(false); }} 
+                  className={`w-full text-left px-6 py-4 text-[11px] font-black tracking-widest transition-all ${value === opt ? 'bg-[#0d1117] text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-[#0d1117]'}`}
+                >
+                  {opt.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
-
-function decode(base64: string) {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
 
 const App = () => {
   const [view, setView] = useState<View>('generator');
@@ -86,245 +121,210 @@ const App = () => {
   const [activeStory, setActiveStory] = useState<Story | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, step: 'Drafting...' });
+  const [genProgress, setGenProgress] = useState({ current: 0, total: 0, step: '' });
   const [isNarrating, setIsNarrating] = useState(false);
-  
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const [genre, setGenre] = useState<Genre>(Genre.Fantasy);
   const [mood, setMood] = useState<Mood>(Mood.Epic);
   const [style, setStyle] = useState<StoryStyle>(StoryStyle.OilPainting);
+  const [voice, setVoice] = useState<Voice>(Voice.Male);
   const [pageCount, setPageCount] = useState(5);
   const [plot, setPlot] = useState('');
-  const [cast, setCast] = useState<CastMember[]>([
-    { id: '1', name: '', role: '' }
-  ]);
-
-  // Fix for "White Screen" bug: Ensure index is always valid for the active story
-  useEffect(() => {
-    setCurrentPageIndex(0);
-  }, [activeStory?.id]);
+  const [cast, setCast] = useState<CastMember[]>([{ id: '1', name: '', role: '' }]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('mythos_stories');
-    if (saved) {
-      try { 
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setStories(parsed);
-      } catch (e) {
-        console.error("Failed to load stories", e);
-      }
-    }
+    getFromDB().then(data => setStories(data.sort((a, b) => b.createdAt - a.createdAt)));
   }, []);
 
-  useEffect(() => {
-    if (stories.length > 0) {
-      localStorage.setItem('mythos_stories', JSON.stringify(stories));
-    }
-  }, [stories]);
-
-  const stopAudio = () => {
-    if (audioSourceRef.current) {
-      try { audioSourceRef.current.stop(); } catch (e) {}
-      audioSourceRef.current = null;
-    }
-    setIsNarrating(false);
-  };
-
-  const playNarration = async (base64Audio: string) => {
-    stopAudio();
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    }
-    const ctx = audioContextRef.current;
-    if (ctx.state === 'suspended') await ctx.resume();
-    const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(ctx.destination);
-    source.onended = () => setIsNarrating(false);
-    audioSourceRef.current = source;
-    source.start();
-    setIsNarrating(true);
-  };
-
   const handleGenerate = async () => {
-    if (isGenerating) return;
     setIsGenerating(true);
-    setGenerationProgress({ current: 0, total: pageCount, step: 'Formulating narrative arc...' });
-    
+    setGenProgress({ current: 0, total: pageCount, step: 'Drafting narrative...' });
     try {
       const result = await generateStoryContent(genre, mood, pageCount, cast, plot, style);
-      
       const newStory: Story = {
         id: Date.now().toString(),
         title: result.title,
-        genre,
-        mood,
-        style,
-        plot,
-        cast,
-        pages: result.pages,
+        genre, mood, style, plot, cast,
+        pages: [],
         createdAt: Date.now(),
-        isFavorite: false,
-        isGeneratingImages: true
+        isFavorite: false
       };
-
-      setGenerationProgress(prev => ({ ...prev, step: 'Crafting illustrations...' }));
-      
-      const finalPages = await Promise.all(result.pages.map(async (page, index) => {
-        try {
-          const imageUrl = await generateImageForPage(page.imagePrompt, genre);
-          const audioData = await generateNarration(page.text, mood);
-          setGenerationProgress(prev => ({ 
-            ...prev, 
-            current: prev.current + 1,
-            step: `Chapter ${prev.current + 1} of ${pageCount} complete...` 
-          }));
-          return { ...page, imageUrl, audioData };
-        } catch (err) {
-          return { ...page, imageUrl: 'https://images.unsplash.com/photo-1543004223-249377484407' };
-        }
-      }));
-
+      const finalPages = [];
+      for(let i = 0; i < result.pages.length; i++) {
+        setGenProgress({ current: i + 1, total: pageCount, step: `Chapter ${i + 1} of ${pageCount}...` });
+        const imgUrl = await generateImageForPage(result.pages[i].imagePrompt, genre);
+        const audio = await generateNarration(result.pages[i].text, voice);
+        finalPages.push({ ...result.pages[i], imageUrl: imgUrl, audioData: audio });
+      }
       newStory.pages = finalPages;
-      newStory.isGeneratingImages = false;
-
-      setStories(prev => [newStory, ...prev]);
+      await saveToDB(newStory);
+      setStories([newStory, ...stories]);
       setActiveStory(newStory);
       setView('reader');
-    } catch (error) {
-      console.error(error);
-      alert("Encountered an issue crafting your story. Switching to the Flash model should help with current quota limits.");
-    } finally {
-      setIsGenerating(false);
+    } catch (e) { alert("Manifestation failed. Please try again later."); }
+    finally { setIsGenerating(false); }
+  };
+
+  const deleteStory = async (id: string) => {
+    if (confirm("Delete this chronicle?")) {
+      await removeFromDB(id);
+      setStories(stories.filter(s => s.id !== id));
+      if (activeStory?.id === id) setView('library');
     }
   };
 
-  const openStory = (story: Story) => {
-    setActiveStory(story);
-    setView('reader');
-  };
-
-  const deleteStory = (id: string) => {
-    if (!confirm("Are you sure you want to delete this story?")) return;
-    const updatedStories = stories.filter(s => s.id !== id);
-    setStories(updatedStories);
-    localStorage.setItem('mythos_stories', JSON.stringify(updatedStories));
-    if (activeStory?.id === id) {
-      setActiveStory(null);
-      setView('library');
+  const removeCastMember = (id: string) => {
+    if (cast.length > 1) {
+      setCast(cast.filter(c => c.id !== id));
     }
   };
 
   const renderGenerator = () => (
-    <div className="max-w-7xl mx-auto py-12 px-6 lg:px-8 mt-16 lg:mt-0">
-      <div className="flex flex-col lg:flex-row gap-8 items-stretch mb-24">
-        <div className="lg:w-1/3 flex flex-col gap-8 order-1">
-          <div className="modern-card p-8 lg:p-10 w-full animate-slide-up flex flex-col" style={{ animationDelay: '0.1s' }}>
-            <div className="flex items-center gap-4 mb-10">
-              <div className="w-14 h-14 bg-slate-900 rounded-[1.5rem] flex items-center justify-center text-xl shadow-xl shadow-slate-200">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Configuration</h2>
-              </div>
+    <div className="max-w-7xl mx-auto py-10 px-8 lg:px-12 pt-28 lg:pt-16 flex flex-col gap-10 pb-20">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        
+        {/* Left: Configuration Panel */}
+        <div className="lg:col-span-4 modern-card p-10 flex flex-col animate-slide-up bg-white shadow-xl border-slate-100">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-[#0d1117] rounded-[1.25rem] flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
             </div>
-
-            <div className="space-y-8 flex-grow">
-              <div className="flex flex-col gap-3">
-                <label className="font-bold text-slate-700 tracking-tight">Genre</label>
-                <Dropdown value={genre} options={Object.values(Genre)} onChange={setGenre} />
-              </div>
-              <div className="flex flex-col gap-3">
-                <label className="font-bold text-slate-700 tracking-tight">Mood</label>
-                <Dropdown value={mood} options={Object.values(Mood)} onChange={setMood} />
-              </div>
-              <div className="flex flex-col gap-3">
-                <label className="font-bold text-slate-700 tracking-tight">Art Style</label>
-                <Dropdown value={style} options={Object.values(StoryStyle)} onChange={setStyle} />
-              </div>
-              <div className="space-y-4 pt-4 border-t border-slate-50">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-700 tracking-tight">Length</label>
-                  <span className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-lg">{pageCount} Pages</span>
-                </div>
-                <input type="range" min="3" max="10" value={pageCount} onChange={(e) => setPageCount(parseInt(e.target.value))} />
-              </div>
-            </div>
-            
-            <button 
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="hidden lg:block mt-12 w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 active:scale-95"
-            >
-              {isGenerating ? 'Manifesting...' : 'Create Story'}
-            </button>
+            <h2 className="text-2xl font-black tracking-tight text-[#0d1117]">Configuration</h2>
           </div>
+
+          <div className="flex flex-col">
+            <Dropdown label="Genre" value={genre} options={Object.values(Genre)} onChange={setGenre} />
+            <Dropdown label="Mood" value={mood} options={Object.values(Mood)} onChange={setMood} />
+            <Dropdown label="Art Style" value={style} options={Object.values(StoryStyle)} onChange={setStyle} />
+            <Dropdown label="Voice" value={voice} options={Object.values(Voice)} onChange={setVoice} />
+          </div>
+
+          <div className="mt-2 mb-8">
+            <div className="flex justify-between items-center mb-5">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Length</span>
+              <span className="bg-[#0d1117] text-white px-4 py-1 rounded-xl text-[10px] font-black">{pageCount} Pages</span>
+            </div>
+            <div className="px-1">
+              <input type="range" min="3" max="10" value={pageCount} onChange={(e) => setPageCount(parseInt(e.target.value))} />
+            </div>
+          </div>
+
+          <button 
+            onClick={handleGenerate} 
+            className="w-full bg-[#0d1117] text-white py-5 rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.25em] shadow-2xl hover:bg-slate-800 transition-all active:scale-[0.98] mt-2"
+          >
+            Create Story
+          </button>
         </div>
 
-        <div className="lg:w-2/3 flex flex-col gap-8 order-2">
-          <div className="modern-card p-8 lg:p-10 animate-slide-up flex flex-col" style={{ animationDelay: '0.2s' }}>
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-8">Protagonists</h2>
-            <div className="space-y-4 mb-8">
-              {cast.map((c, idx) => (
-                <div key={c.id} className="soft-input p-6 flex flex-col sm:flex-row items-center gap-6 group animate-slide-up">
-                  <input placeholder="Name" value={c.name} onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, name: e.target.value } : char))} className="w-full sm:flex-1 bg-transparent border-b border-slate-200 py-2 outline-none focus:border-slate-900 transition-all font-bold text-slate-700" />
-                  <input placeholder="Role" value={c.role} onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, role: e.target.value } : char))} className="w-full sm:flex-1 bg-transparent border-b border-slate-200 py-2 outline-none focus:border-slate-900 transition-all font-bold text-slate-700" />
-                  {cast.length > 1 && <button onClick={() => setCast(cast.filter(char => char.id !== c.id))} className="text-red-300 hover:text-red-500 text-xl font-bold">×</button>}
+        {/* Right: Protagonists & Plot */}
+        <div className="lg:col-span-8 flex flex-col gap-10">
+          <div className="modern-card p-12 animate-slide-up bg-white shadow-xl border-slate-100" style={{ animationDelay: '0.1s' }}>
+            <h3 className="text-2xl font-black mb-10 tracking-tight text-[#0d1117]">Protagonists</h3>
+            <div className="flex flex-col gap-6 mb-10">
+              {cast.map((c, i) => (
+                <div key={c.id} className="relative p-7 bg-[#f8fafc] border border-slate-100 rounded-[1.75rem] group animate-in fade-in slide-in-from-left-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Name</label>
+                      <input 
+                        placeholder="e.g. Orion" 
+                        value={c.name} 
+                        onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, name: e.target.value } : char))} 
+                        className="w-full bg-white border border-slate-100 px-5 py-3.5 rounded-2xl font-bold text-[#0d1117] outline-none focus:border-black focus:ring-1 focus:ring-black/5 transition-all text-base placeholder:text-slate-200 shadow-sm" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider ml-1">Role</label>
+                      <input 
+                        placeholder="e.g. Brave Explorer" 
+                        value={c.role} 
+                        onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, role: e.target.value } : char))} 
+                        className="w-full bg-white border border-slate-100 px-5 py-3.5 rounded-2xl font-bold text-[#0d1117] outline-none focus:border-black focus:ring-1 focus:ring-black/5 transition-all text-base placeholder:text-slate-200 shadow-sm" 
+                      />
+                    </div>
+                  </div>
+                  {cast.length > 1 && (
+                    <button 
+                      onClick={() => removeCastMember(c.id)}
+                      className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-slate-100 text-slate-300 rounded-full flex items-center justify-center hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all shadow-md opacity-0 group-hover:opacity-100"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <button onClick={() => setCast([...cast, { id: Date.now().toString(), name: '', role: '' }])} className="w-full py-5 border-2 border-dashed border-slate-100 rounded-[2rem] text-slate-400 font-bold hover:border-slate-300 transition-all">+ Add character</button>
+            <button 
+              onClick={() => setCast([...cast, { id: Date.now().toString(), name: '', role: '' }])} 
+              className="w-full py-5 border border-dashed border-slate-200 rounded-[2rem] font-black text-[11px] text-slate-400 uppercase tracking-[0.25em] hover:bg-slate-50 hover:text-slate-600 transition-all active:scale-[0.99] shadow-sm"
+            >
+              + Add character
+            </button>
           </div>
 
-          <div className="modern-card p-8 lg:p-10 animate-slide-up flex flex-col flex-grow" style={{ animationDelay: '0.3s' }}>
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-8">Starting Plot</h2>
-            <div className="soft-input p-10 flex-grow">
-              <textarea placeholder="Give us a hook or leave it blank for a random legend..." value={plot} onChange={(e) => setPlot(e.target.value)} className="w-full h-full min-h-[160px] bg-transparent outline-none resize-none font-bold text-slate-600 text-lg leading-relaxed no-scrollbar" />
+          <div className="modern-card p-12 animate-slide-up flex flex-col bg-white shadow-xl border-slate-100" style={{ animationDelay: '0.2s' }}>
+            <h3 className="text-2xl font-black mb-8 tracking-tight text-[#0d1117]">Starting Plot</h3>
+            <div className="bg-[#f8fafc] p-8 rounded-[2rem] min-h-[250px] w-full border border-slate-50 flex flex-col focus-within:bg-white focus-within:border-slate-200 transition-all duration-300 shadow-sm">
+              <textarea 
+                placeholder="Give us a hook or leave it blank..." 
+                value={plot} 
+                onChange={(e) => setPlot(e.target.value)} 
+                className="w-full h-full min-h-[180px] bg-transparent outline-none resize-none font-bold text-slate-600 text-base leading-relaxed placeholder:text-slate-300 no-scrollbar flex-grow" 
+              />
             </div>
           </div>
-          
-          <button onClick={handleGenerate} disabled={isGenerating} className="lg:hidden w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 mt-4 order-last">
-            {isGenerating ? 'Manifesting...' : 'Create Story'}
-          </button>
         </div>
       </div>
     </div>
   );
 
   const renderLibrary = () => (
-    <div className="max-w-7xl mx-auto py-16 px-6 lg:px-8 mt-16 lg:mt-0">
-      <header className="mb-16 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 animate-slide-up">
-        <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight">My Library</h1>
-        <div className="bg-white px-8 py-4 rounded-3xl shadow-sm text-sm font-extrabold text-slate-900 border border-slate-100">{stories.length} Chronicles</div>
+    <div className="max-w-6xl mx-auto py-12 px-6 lg:px-10 pt-24 lg:pt-16">
+      <header className="mb-10 animate-slide-up">
+        <h1 className="text-3xl font-black tracking-tight text-[#0d1117]">Collection</h1>
+        <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.4em] mt-1">Saved Books</p>
       </header>
+
       {stories.length === 0 ? (
-        <div className="modern-card py-40 flex flex-col items-center justify-center animate-slide-up">
-          <div className="text-8xl mb-8 opacity-20">📚</div>
-          <h2 className="text-3xl font-extrabold text-slate-300">Your collection is empty</h2>
-          <button onClick={() => setView('generator')} className="mt-10 px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-bold shadow-2xl">Start Writing</button>
+        <div className="flex flex-col items-center justify-center py-12 animate-slide-up text-center px-6 border-2 border-dashed border-slate-100 rounded-[2rem] bg-white/40">
+          <div className="w-16 h-16 bg-white rounded-[1.25rem] flex items-center justify-center text-3xl mb-6 shadow-sm border border-slate-50">
+            ✨
+          </div>
+          <h3 className="text-xl font-black tracking-tight text-[#0d1117]">Shelf empty</h3>
+          <p className="text-slate-400 font-bold mt-2 text-sm max-w-xs leading-relaxed">
+            Manifest your first chronicle to begin.
+          </p>
+          <button 
+            onClick={() => setView('generator')} 
+            className="mt-8 px-8 py-4 bg-[#0d1117] text-white rounded-[1.5rem] font-black text-[10px] tracking-[0.2em] uppercase shadow-lg hover:scale-105 transition-all"
+          >
+            Create Now
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {stories.map((story, i) => (
-            <div key={story.id} className="modern-card overflow-hidden flex flex-col group animate-slide-up h-full" style={{ animationDelay: `${i * 0.1}s` }}>
-              <div className="h-72 relative overflow-hidden bg-slate-100">
-                <img src={story.pages[0]?.imageUrl || 'https://images.unsplash.com/photo-1543004223-249377484407'} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                <div className="absolute bottom-8 left-8 right-8">
-                   <span className="text-[9px] font-black text-white/50 tracking-widest uppercase mb-2 block">{story.genre}</span>
-                   <h3 className="text-2xl font-extrabold text-white line-clamp-2 leading-tight">{story.title}</h3>
+            <div key={story.id} className="modern-card overflow-hidden flex flex-col group animate-slide-up bg-white shadow-sm border-slate-100" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div className="h-60 relative overflow-hidden bg-slate-50">
+                <img src={story.pages[0]?.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2s] ease-out" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                <div className="absolute bottom-6 left-6 right-6 text-white">
+                  <span className="text-[9px] font-black tracking-[0.2em] uppercase opacity-60 mb-1.5 block">{story.genre}</span>
+                  <h3 className="text-xl font-black line-clamp-2 leading-tight tracking-tight">{story.title}</h3>
                 </div>
               </div>
-              <div className="p-10 flex-grow flex flex-col">
-                <button onClick={() => openStory(story)} className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-extrabold text-sm mb-4 active:scale-95 transition-all">Read Chronicle</button>
-                <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => exportToPDF(story)} className="bg-slate-50 text-slate-600 py-4 rounded-[1.5rem] font-bold text-xs hover:bg-slate-100 transition-all">Export PDF</button>
-                  <button onClick={() => deleteStory(story.id)} className="bg-red-50 text-red-400 py-4 rounded-[1.5rem] font-bold text-xs hover:bg-red-100 transition-all">Delete</button>
+              <div className="p-6 flex-grow flex flex-col gap-3">
+                <button onClick={() => { setActiveStory(story); setView('reader'); }} className="w-full bg-[#0d1117] text-white py-3.5 rounded-[1rem] font-black text-[10px] uppercase tracking-widest active:scale-95 transition-transform">Open Book</button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => exportToPDF(story)} className="bg-slate-50 text-slate-500 py-3 rounded-[1rem] font-black text-[8px] uppercase tracking-widest hover:bg-slate-100">PDF</button>
+                  <button onClick={() => deleteStory(story.id)} className="bg-red-50 text-red-400 py-3 rounded-[1rem] font-black text-[8px] uppercase tracking-widest hover:bg-red-500 hover:text-white">Delete</button>
                 </div>
               </div>
             </div>
@@ -335,101 +335,76 @@ const App = () => {
   );
 
   const renderReader = () => {
-    // White screen safety check
     const page = activeStory?.pages[currentPageIndex];
-    if (!activeStory || !page) {
-      return (
-        <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center flex-col text-white gap-6">
-          <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-          <p className="text-xl font-bold tracking-widest uppercase animate-pulse">Binding Folio...</p>
-          <button onClick={() => setView('library')} className="mt-8 px-8 py-3 bg-white/10 rounded-full text-xs font-bold">Back to Library</button>
-        </div>
-      );
-    }
-
+    if (!page) return null;
     return (
-      <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden animate-in fade-in duration-700">
-        <div className="h-20 bg-white/5 backdrop-blur-2xl border-b border-white/10 px-6 lg:px-10 flex items-center justify-between shrink-0">
-          <button onClick={() => { stopAudio(); setView('library'); }} className="text-white/60 hover:text-white transition-all font-black text-[10px] tracking-[0.4em]">← LIBRARY</button>
-          <div className="hidden md:block text-center flex-1 mx-8 overflow-hidden">
-            <h2 className="text-white font-extrabold text-lg truncate uppercase tracking-widest">{activeStory.title}</h2>
-          </div>
-          <button onClick={() => exportToPDF(activeStory)} className="px-6 py-2 bg-white text-slate-900 rounded-full font-black text-[10px] tracking-widest active:scale-95 transition-all">DOWNLOAD PDF</button>
+      <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-in fade-in duration-700">
+        <div className="h-16 border-b border-slate-50 px-6 flex items-center justify-between">
+          <button onClick={() => setView('library')} className="text-slate-400 font-black text-[9px] tracking-[0.4em] uppercase hover:text-black transition-all">← Back</button>
+          <h2 className="text-black font-black text-[10px] uppercase tracking-[0.3em] truncate px-4">{activeStory?.title}</h2>
+          <button onClick={() => exportToPDF(activeStory!)} className="px-5 py-2 bg-[#0d1117] text-white rounded-full font-black text-[9px] tracking-widest uppercase shadow-lg">Export PDF</button>
         </div>
-        
-        <div className="flex-grow flex items-center justify-center p-0 lg:p-10 relative overflow-hidden">
-          {/* Navigation Controls */}
-          <button disabled={currentPageIndex === 0} onClick={() => { stopAudio(); setCurrentPageIndex(p => p - 1); }} className={`absolute left-4 lg:left-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === 0 ? 'opacity-0 pointer-events-none' : 'hover:bg-white/15 active:scale-90'}`}>←</button>
-          <button disabled={currentPageIndex === activeStory.pages.length - 1} onClick={() => { stopAudio(); setCurrentPageIndex(p => p + 1); }} className={`absolute right-4 lg:right-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === activeStory.pages.length - 1 ? 'opacity-0 pointer-events-none' : 'hover:bg-white/15 active:scale-90'}`}>→</button>
-          
-          {/* Book Container - Immersive Full Screen side-by-side */}
-          <div className="w-full h-full max-w-[1700px] max-h-[900px] bg-white rounded-none lg:rounded-[3rem] overflow-hidden flex flex-col lg:flex-row shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] relative animate-slide-up border-x-[1px] border-white/10">
-            
-            {/* Visual Part - Left Side (Full Screen side) */}
-            <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-slate-900 relative overflow-hidden flex-shrink-0">
-              {page?.imageUrl && <img src={page.imageUrl} className="w-full h-full object-cover animate-in fade-in zoom-in-110 duration-1000" alt="Story Illustration" />}
-              {/* Spine Shadow Effect - Simulated Depth */}
-              <div className="hidden lg:block absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-black/40 via-black/10 to-transparent pointer-events-none" />
-            </div>
-
-            {/* Narrative Part - Right Side (Paper Texture) */}
-            <div className="w-full lg:w-1/2 h-1/2 lg:h-full p-10 lg:p-24 xl:p-32 flex flex-col relative overflow-y-auto no-scrollbar bg-[#fdfbf7] paper-texture">
-              {/* Spine Inner Shadow - Simulated Depth */}
-              <div className="hidden lg:block absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black/20 via-black/5 to-transparent pointer-events-none" />
-              
-              <div className="flex justify-between items-center mb-16 relative z-10 shrink-0">
-                <span className="text-[11px] font-black text-slate-400 tracking-[0.5em] uppercase">FOLIO {currentPageIndex + 1}</span>
-                {page?.audioData && (
-                  <button 
-                    onClick={() => isNarrating ? stopAudio() : playNarration(page.audioData!)} 
-                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-xl ${isNarrating ? 'bg-slate-900 text-white animate-pulse' : 'bg-white text-slate-900 hover:scale-110 border border-slate-100'}`}
-                  >
-                    {isNarrating ? '■' : '▶'}
-                  </button>
-                )}
-              </div>
-              
-              <div className="flex-grow flex flex-col relative z-10">
-                <div className="prose prose-xl lg:prose-2xl max-w-none font-crimson text-slate-900 leading-[1.8] drop-cap selection:bg-amber-100">
-                  <ReactMarkdown>{page?.text || ''}</ReactMarkdown>
+        <div className="flex-grow flex items-center justify-center p-4 lg:p-8">
+          <div className="w-full h-full max-w-[1500px] max-h-[800px] bg-white rounded-[2.5rem] shadow-2xl border border-slate-50 flex flex-col lg:flex-row overflow-hidden relative">
+             <div className="w-full lg:w-1/2 h-2/5 lg:h-full bg-slate-50 overflow-hidden relative">
+                <img src={page.imageUrl} className="w-full h-full object-cover animate-in fade-in duration-1000" />
+                <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-black/20 to-transparent pointer-events-none hidden lg:block" />
+             </div>
+             <div className="w-full lg:w-1/2 h-3/5 lg:h-full p-8 lg:p-16 overflow-y-auto no-scrollbar paper-texture relative">
+                <div className="flex justify-between items-center mb-8">
+                   <span className="text-[9px] font-black text-slate-300 tracking-[0.5em] uppercase">Folio {currentPageIndex + 1}</span>
+                   {page.audioData && (
+                     <button onClick={() => {
+                       if (isNarrating) { audioSourceRef.current?.stop(); setIsNarrating(false); }
+                       else {
+                          const ctx = new AudioContext();
+                          const buf = new Uint8Array(atob(page.audioData!).split("").map(c => c.charCodeAt(0))).buffer;
+                          ctx.decodeAudioData(buf).then(ab => {
+                            const src = ctx.createBufferSource(); src.buffer = ab; src.connect(ctx.destination);
+                            src.start(); setIsNarrating(true); src.onended = () => setIsNarrating(false);
+                            audioSourceRef.current = src;
+                          });
+                       }
+                     }} className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${isNarrating ? 'bg-[#0d1117] text-white scale-110' : 'bg-white text-black hover:scale-105 border border-slate-100'}`}>
+                       {isNarrating ? (
+                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                       ) : (
+                         <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                       )}
+                     </button>
+                   )}
                 </div>
-              </div>
-              
-              <div className="mt-20 text-center relative z-10 shrink-0">
-                <span className="text-[10px] font-black text-slate-300 tracking-[0.6em] uppercase">— {currentPageIndex + 1} —</span>
-              </div>
-            </div>
+                <div className="prose prose-lg prose-slate font-crimson text-[#0d1117] drop-cap leading-relaxed animate-in slide-in-from-bottom-2 duration-500">
+                  <ReactMarkdown>{page.text}</ReactMarkdown>
+                </div>
+             </div>
           </div>
-        </div>
-
-        {/* Global Progress Bar */}
-        <div className="h-1.5 bg-white/5 w-full relative shrink-0">
-          <div className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_20px_white]" style={{ width: `${((currentPageIndex + 1) / activeStory.pages.length) * 100}%` }} />
+          <button disabled={currentPageIndex === 0} onClick={() => setCurrentPageIndex(p => p - 1)} className="absolute left-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center text-xl font-black disabled:opacity-0 transition-all hover:scale-105 border border-slate-50">←</button>
+          <button disabled={currentPageIndex === activeStory!.pages.length - 1} onClick={() => setCurrentPageIndex(p => p + 1)} className="absolute right-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center text-xl font-black disabled:opacity-0 transition-all hover:scale-105 border border-slate-50">→</button>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen lg:pl-64 transition-all selection:bg-slate-900 selection:text-white">
-      <Sidebar currentView={view} onViewChange={(v) => { stopAudio(); setView(v); }} />
-      <main className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen lg:pl-64 bg-[#fcfcfc] overflow-visible">
+      <Sidebar currentView={view} onViewChange={setView} />
+      <main className="min-h-screen">
         {view === 'generator' && renderGenerator()}
         {view === 'library' && renderLibrary()}
         {view === 'reader' && renderReader()}
       </main>
-      
       {isGenerating && (
-        <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center text-white p-10 text-center">
-          <div className="w-64 h-64 mb-16 relative flex items-center justify-center">
-             <svg className="w-full h-full animate-spin duration-[4000ms]" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-                <circle cx="50" cy="50" r="46" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeDasharray="80 200" />
-             </svg>
-             <div className="absolute inset-0 flex items-center justify-center"><span className="text-8xl animate-pulse">📖</span></div>
+        <div className="fixed inset-0 z-[500] bg-white/95 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8 animate-in fade-in duration-500">
+          <div className="w-40 h-40 relative mb-12">
+            <svg className="w-full h-full animate-spin duration-[4s]" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="#f4f4f4" strokeWidth="2" />
+              <circle cx="50" cy="50" r="46" fill="none" stroke="#0d1117" strokeWidth="4" strokeDasharray="100 200" strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-5xl animate-pulse">📖</div>
           </div>
-          <h2 className="text-6xl font-black tracking-[0.4em] mb-8 uppercase">Manifesting...</h2>
-          <p className="text-slate-400 font-crimson italic text-4xl leading-relaxed opacity-80 max-w-2xl">"{generationProgress.step}"</p>
+          <h2 className="text-3xl font-black tracking-tight uppercase mb-4 text-[#0d1117]">Manifesting...</h2>
+          <p className="text-xl font-crimson italic text-slate-400 max-w-lg leading-relaxed px-6">"{genProgress.step}"</p>
         </div>
       )}
     </div>
@@ -437,7 +412,4 @@ const App = () => {
 };
 
 const rootElement = document.getElementById('root');
-if (rootElement) {
-  const root = createRoot(rootElement);
-  root.render(<App />);
-}
+if (rootElement) createRoot(rootElement).render(<App />);
