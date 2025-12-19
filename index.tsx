@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import ReactMarkdown from 'react-markdown';
 import { 
   Story, 
   View, 
@@ -87,7 +88,6 @@ const App = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, step: 'Drafting...' });
   const [isNarrating, setIsNarrating] = useState(false);
-  const [keyError, setKeyError] = useState(false);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -102,10 +102,6 @@ const App = () => {
   ]);
 
   useEffect(() => {
-    if (!process.env.API_KEY) {
-      setKeyError(true);
-    }
-
     const saved = localStorage.getItem('mythos_stories');
     if (saved) {
       try { 
@@ -150,10 +146,6 @@ const App = () => {
 
   const handleGenerate = async () => {
     if (isGenerating) return;
-    if (!process.env.API_KEY) {
-      alert("Error: API key is missing. Please set your environment variables on Vercel.");
-      return;
-    }
     setIsGenerating(true);
     setGenerationProgress({ current: 0, total: pageCount, step: 'Formulating narrative arc...' });
     
@@ -200,20 +192,18 @@ const App = () => {
       setView('reader');
     } catch (error) {
       console.error(error);
-      alert("We encountered an issue crafting your story. " + (error as Error).message);
+      alert("Encountered an issue crafting your story. Ensure your API_KEY is set in Vercel.");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Fix: Added missing openStory function to view a saved story
   const openStory = (story: Story) => {
     setActiveStory(story);
     setCurrentPageIndex(0);
     setView('reader');
   };
 
-  // Fix: Added missing deleteStory function to remove a story from the collection
   const deleteStory = (id: string) => {
     const updatedStories = stories.filter(s => s.id !== id);
     setStories(updatedStories);
@@ -223,26 +213,6 @@ const App = () => {
       setView('library');
     }
   };
-
-  if (keyError) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
-        <div className="modern-card p-12 max-w-md">
-          <div className="text-6xl mb-6">⚠️</div>
-          <h1 className="text-2xl font-black text-slate-900 mb-4">Configuration Error</h1>
-          <p className="text-slate-500 font-bold mb-8">
-            An API Key must be set in your Vercel Environment Variables as <code>API_KEY</code> to use Mythos.
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold"
-          >
-            Check Again
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const renderGenerator = () => (
     <div className="max-w-7xl mx-auto py-12 px-6 lg:px-8 mt-16 lg:mt-0">
@@ -359,6 +329,7 @@ const App = () => {
   );
 
   const renderReader = () => {
+    // White screen safety check
     if (!activeStory || !activeStory.pages || activeStory.pages.length === 0) {
       return (
         <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center flex-col text-white gap-6">
@@ -382,16 +353,22 @@ const App = () => {
           <button disabled={currentPageIndex === 0} onClick={() => { stopAudio(); setCurrentPageIndex(p => p - 1); }} className={`absolute left-4 lg:left-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === 0 ? 'opacity-0' : 'hover:bg-white/15'}`}>←</button>
           <button disabled={currentPageIndex === activeStory.pages.length - 1} onClick={() => { stopAudio(); setCurrentPageIndex(p => p + 1); }} className={`absolute right-4 lg:right-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === activeStory.pages.length - 1 ? 'opacity-0' : 'hover:bg-white/15'}`}>→</button>
           <div className="w-full max-w-[1500px] h-full max-h-[850px] bg-[#fdfbf7] rounded-[2.5rem] lg:rounded-[3.5rem] overflow-hidden flex flex-col lg:flex-row shadow-2xl relative animate-slide-up border-x-[1.25rem] border-slate-900/40">
+            {/* Visual Part - Left Side */}
             <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-slate-900/5 relative overflow-hidden flex-shrink-0">
               {page?.imageUrl && <img src={page.imageUrl} className="w-full h-full object-cover animate-in fade-in zoom-in-110 duration-1000" />}
+              <div className="hidden lg:block absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/10 to-transparent pointer-events-none" />
             </div>
+            {/* Narrative Part - Right Side */}
             <div className="w-full lg:w-1/2 h-1/2 lg:h-full p-8 lg:p-20 xl:p-24 flex flex-col relative overflow-y-auto no-scrollbar bg-white">
+              <div className="hidden lg:block absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/5 to-transparent pointer-events-none" />
               <div className="flex justify-between items-center mb-12 relative z-10 shrink-0">
                 <span className="text-[11px] font-black text-slate-300 tracking-[0.5em] uppercase">PAGE {currentPageIndex + 1}</span>
                 {page?.audioData && <button onClick={() => isNarrating ? stopAudio() : playNarration(page.audioData!)} className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center transition-all ${isNarrating ? 'bg-slate-900 text-white animate-pulse' : 'bg-white text-slate-400 border border-slate-100'}`}>{isNarrating ? '■' : '▶'}</button>}
               </div>
               <div className="flex-grow flex flex-col relative z-10">
-                <div className="prose prose-xl lg:prose-2xl max-w-none font-crimson text-slate-800 leading-relaxed drop-cap">{page?.text?.replace(/[*]/g, '')}</div>
+                <div className="prose prose-xl lg:prose-2xl max-w-none font-crimson text-slate-800 leading-relaxed drop-cap selection:bg-slate-100">
+                  <ReactMarkdown>{page?.text || ''}</ReactMarkdown>
+                </div>
               </div>
               <div className="mt-12 text-center relative z-10 shrink-0">
                 <span className="text-xs font-black text-slate-200 tracking-[0.5em] uppercase">{currentPageIndex + 1} / {activeStory.pages.length}</span>

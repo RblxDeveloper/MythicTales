@@ -39,11 +39,11 @@ export const exportToPDF = async (story: Story) => {
     // Split point at 50%
     const splitPoint = width / 2;
 
-    // LEFT HALF: IMAGE
+    // LEFT HALF: IMAGE (FULL SCREEN SIDE)
     if (page.imageUrl) {
       try {
-        // Full bleed for the left side
-        doc.addImage(page.imageUrl, 'PNG', 0, 0, splitPoint, height);
+        // We use cover-style logic for the left side
+        doc.addImage(page.imageUrl, 'JPEG', 0, 0, splitPoint, height);
       } catch (e) {
         doc.setFillColor(241, 245, 249);
         doc.rect(0, 0, splitPoint, height, 'F');
@@ -57,33 +57,34 @@ export const exportToPDF = async (story: Story) => {
     doc.setFillColor(254, 253, 251); // Paper-like off-white
     doc.rect(splitPoint, 0, splitPoint, height, 'F');
     
-    // Inner spine shadow line
-    doc.setDrawColor(230, 230, 230);
-    doc.setLineWidth(0.1);
+    // Spine shadow
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(1);
     doc.line(splitPoint, 0, splitPoint, height);
     
     const margin = 25;
     const textWidth = splitPoint - (margin * 2);
+    // Remove Markdown markers for PDF text as jsPDF doesn't render MD natively
     const cleanText = page.text.replace(/[*_#]/g, '');
     
-    // Page Folio
+    // Folio Info
     doc.setFont('times', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(200, 200, 200);
-    doc.text(`FOLIO ${i + 1}`, splitPoint + margin, 20);
+    doc.setTextColor(180, 180, 180);
+    doc.text(`FOLIO ${i + 1} OF ${story.pages.length}`, splitPoint + margin, 20);
 
     // Body Text
     doc.setTextColor(30, 41, 59);
     doc.setFont('times', 'normal');
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     
     const textLines = doc.splitTextToSize(cleanText, textWidth);
-    doc.text(textLines, splitPoint + margin, 50, { lineHeightFactor: 1.6 });
+    doc.text(textLines, splitPoint + margin, 45, { lineHeightFactor: 1.6 });
     
-    // Total Page count indicator
-    doc.setFontSize(12);
-    doc.setTextColor(230, 230, 230);
-    doc.text(`${i + 1} / ${story.pages.length}`, width - 20, height - 15, { align: 'right' });
+    // Page number
+    doc.setFontSize(11);
+    doc.setTextColor(210, 210, 210);
+    doc.text(`${i + 1}`, width - 15, height - 15, { align: 'right' });
   }
 
   doc.save(`${story.title.replace(/\s+/g, '_')}_Chronicle.pdf`);
