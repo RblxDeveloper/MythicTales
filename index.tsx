@@ -303,7 +303,7 @@ const App = () => {
                     <div className="flex flex-col gap-3">
                       <label className="text-[10px] font-inter font-bold text-slate-400 uppercase tracking-widest">Hero's Name</label>
                       <input 
-                        placeholder="e.g. Omar" 
+                        placeholder="e.g. Atlas" 
                         value={c.name} 
                         onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, name: e.target.value } : char))} 
                         className="w-full bg-white border border-slate-200 px-6 py-4 rounded-2xl font-inter font-bold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-all shadow-sm" 
@@ -312,7 +312,7 @@ const App = () => {
                     <div className="flex flex-col gap-3">
                       <label className="text-[10px] font-inter font-bold text-slate-400 uppercase tracking-widest">Role or Class</label>
                       <input 
-                        placeholder="e.g. Prince" 
+                        placeholder="e.g. Rogue Knight" 
                         value={c.role} 
                         onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, role: e.target.value } : char))} 
                         className="w-full bg-white border border-slate-200 px-6 py-4 rounded-2xl font-inter font-bold text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-all shadow-sm" 
@@ -547,8 +547,8 @@ const App = () => {
           </div>
         </div>
 
-        {/* Simplified Progress Footer */}
-        <div className="shrink-0 h-28 px-8 lg:px-12 flex flex-col items-center justify-center gap-4 text-white/30 bg-black sticky bottom-0">
+        {/* Simplified Progress Footer - Non-sticky, naturally at the bottom of content */}
+        <div className="w-full h-28 px-8 lg:px-12 flex flex-col items-center justify-center gap-4 text-white/30 bg-black mt-10">
            <div className="flex gap-2 lg:gap-4">
              {activeStory!.pages.map((_, idx) => (
                <button 
