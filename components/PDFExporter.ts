@@ -18,31 +18,37 @@ export const exportToPDF = async (story: Story) => {
   
   // Decorative Gold Border
   doc.setDrawColor(199, 153, 0); 
-  doc.setLineWidth(0.5);
-  doc.rect(15, 15, width - 30, height - 30, 'S');
+  doc.setLineWidth(0.8);
+  doc.rect(10, 10, width - 20, height - 20, 'S');
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('times', 'bold');
-  doc.setFontSize(54);
-  doc.text(story.title.toUpperCase(), width / 2, height / 2 - 10, { align: 'center' });
+  doc.setFontSize(48);
+  const titleLines = doc.splitTextToSize(story.title.toUpperCase(), width - 60);
+  doc.text(titleLines, width / 2, height / 2 - 15, { align: 'center' });
   
-  doc.setFontSize(24);
+  doc.setFontSize(20);
   doc.setFont('times', 'italic');
-  doc.setTextColor(100, 116, 139);
-  doc.text(`A ${story.genre} Legend forged in Mythos`, width / 2, height / 2 + 10, { align: 'center' });
+  doc.setTextColor(148, 163, 184);
+  doc.text(`A ${story.genre} Chronicle`, width / 2, height / 2 + 25, { align: 'center' });
+  
+  doc.setFontSize(14);
+  doc.setFont('times', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text("GENERATED VIA MYTHOS PERSONAL EDITION", width / 2, height - 25, { align: 'center' });
 
   // Story Pages
   for (let i = 0; i < story.pages.length; i++) {
     const page = story.pages[i];
     doc.addPage();
     
-    // Split point at 50%
+    // Split point exactly at 50%
     const splitPoint = width / 2;
 
     // LEFT HALF: IMAGE (FULL SCREEN SIDE)
     if (page.imageUrl) {
       try {
-        // We use cover-style logic for the left side
+        // High precision placement for full-bleed feel
         doc.addImage(page.imageUrl, 'JPEG', 0, 0, splitPoint, height);
       } catch (e) {
         doc.setFillColor(241, 245, 249);
@@ -53,39 +59,38 @@ export const exportToPDF = async (story: Story) => {
       doc.rect(0, 0, splitPoint, height, 'F');
     }
 
-    // RIGHT HALF: TEXT
-    doc.setFillColor(254, 253, 251); // Paper-like off-white
+    // RIGHT HALF: TEXT SIDE (Paper like background)
+    doc.setFillColor(253, 251, 247); 
     doc.rect(splitPoint, 0, splitPoint, height, 'F');
     
-    // Spine shadow
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(1);
+    // Spine inner shadow line
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.2);
     doc.line(splitPoint, 0, splitPoint, height);
     
-    const margin = 25;
+    const margin = 28;
     const textWidth = splitPoint - (margin * 2);
-    // Remove Markdown markers for PDF text as jsPDF doesn't render MD natively
-    const cleanText = page.text.replace(/[*_#]/g, '');
+    const cleanText = page.text.replace(/[*_#]/g, ''); // Remove MD markers for cleaner PDF
     
-    // Folio Info
+    // Folio Tag
     doc.setFont('times', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(180, 180, 180);
-    doc.text(`FOLIO ${i + 1} OF ${story.pages.length}`, splitPoint + margin, 20);
+    doc.setFontSize(9);
+    doc.setTextColor(160, 160, 160);
+    doc.text(`FOLIO ${i + 1} / ${story.pages.length}`, splitPoint + margin, 25);
 
     // Body Text
-    doc.setTextColor(30, 41, 59);
+    doc.setTextColor(20, 20, 20);
     doc.setFont('times', 'normal');
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     
     const textLines = doc.splitTextToSize(cleanText, textWidth);
-    doc.text(textLines, splitPoint + margin, 45, { lineHeightFactor: 1.6 });
+    doc.text(textLines, splitPoint + margin, 45, { lineHeightFactor: 1.65 });
     
-    // Page number
-    doc.setFontSize(11);
-    doc.setTextColor(210, 210, 210);
-    doc.text(`${i + 1}`, width - 15, height - 15, { align: 'right' });
+    // Decorative Page Number
+    doc.setFontSize(10);
+    doc.setTextColor(200, 200, 200);
+    doc.text(`— ${i + 1} —`, splitPoint + (splitPoint / 2), height - 15, { align: 'center' });
   }
 
-  doc.save(`${story.title.replace(/\s+/g, '_')}_Chronicle.pdf`);
+  doc.save(`${story.title.replace(/\s+/g, '_')}_Mythos_Chronicle.pdf`);
 };

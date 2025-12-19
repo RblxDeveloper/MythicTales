@@ -101,6 +101,11 @@ const App = () => {
     { id: '1', name: '', role: '' }
   ]);
 
+  // Fix for "White Screen" bug: Ensure index is always valid for the active story
+  useEffect(() => {
+    setCurrentPageIndex(0);
+  }, [activeStory?.id]);
+
   useEffect(() => {
     const saved = localStorage.getItem('mythos_stories');
     if (saved) {
@@ -188,11 +193,10 @@ const App = () => {
 
       setStories(prev => [newStory, ...prev]);
       setActiveStory(newStory);
-      setCurrentPageIndex(0);
       setView('reader');
     } catch (error) {
       console.error(error);
-      alert("Encountered an issue crafting your story. Ensure your API_KEY is set in Vercel.");
+      alert("Encountered an issue crafting your story. Switching to the Flash model should help with current quota limits.");
     } finally {
       setIsGenerating(false);
     }
@@ -200,11 +204,11 @@ const App = () => {
 
   const openStory = (story: Story) => {
     setActiveStory(story);
-    setCurrentPageIndex(0);
     setView('reader');
   };
 
   const deleteStory = (id: string) => {
+    if (!confirm("Are you sure you want to delete this story?")) return;
     const updatedStories = stories.filter(s => s.id !== id);
     setStories(updatedStories);
     localStorage.setItem('mythos_stories', JSON.stringify(updatedStories));
@@ -255,9 +259,9 @@ const App = () => {
             <button 
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="hidden lg:block mt-12 w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50"
+              className="hidden lg:block mt-12 w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 active:scale-95"
             >
-              {isGenerating ? 'Drafting Story...' : 'Create Story'}
+              {isGenerating ? 'Manifesting...' : 'Create Story'}
             </button>
           </div>
         </div>
@@ -270,7 +274,7 @@ const App = () => {
                 <div key={c.id} className="soft-input p-6 flex flex-col sm:flex-row items-center gap-6 group animate-slide-up">
                   <input placeholder="Name" value={c.name} onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, name: e.target.value } : char))} className="w-full sm:flex-1 bg-transparent border-b border-slate-200 py-2 outline-none focus:border-slate-900 transition-all font-bold text-slate-700" />
                   <input placeholder="Role" value={c.role} onChange={(e) => setCast(cast.map(char => char.id === c.id ? { ...char, role: e.target.value } : char))} className="w-full sm:flex-1 bg-transparent border-b border-slate-200 py-2 outline-none focus:border-slate-900 transition-all font-bold text-slate-700" />
-                  {cast.length > 1 && <button onClick={() => setCast(cast.filter(char => char.id !== c.id))} className="text-red-300 hover:text-red-500">×</button>}
+                  {cast.length > 1 && <button onClick={() => setCast(cast.filter(char => char.id !== c.id))} className="text-red-300 hover:text-red-500 text-xl font-bold">×</button>}
                 </div>
               ))}
             </div>
@@ -280,12 +284,12 @@ const App = () => {
           <div className="modern-card p-8 lg:p-10 animate-slide-up flex flex-col flex-grow" style={{ animationDelay: '0.3s' }}>
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-8">Starting Plot</h2>
             <div className="soft-input p-10 flex-grow">
-              <textarea placeholder="Give us a hook or leave it blank..." value={plot} onChange={(e) => setPlot(e.target.value)} className="w-full h-full min-h-[160px] bg-transparent outline-none resize-none font-bold text-slate-600 text-lg leading-relaxed no-scrollbar" />
+              <textarea placeholder="Give us a hook or leave it blank for a random legend..." value={plot} onChange={(e) => setPlot(e.target.value)} className="w-full h-full min-h-[160px] bg-transparent outline-none resize-none font-bold text-slate-600 text-lg leading-relaxed no-scrollbar" />
             </div>
           </div>
           
           <button onClick={handleGenerate} disabled={isGenerating} className="lg:hidden w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 mt-4 order-last">
-            {isGenerating ? 'Drafting Story...' : 'Create Story'}
+            {isGenerating ? 'Manifesting...' : 'Create Story'}
           </button>
         </div>
       </div>
@@ -296,10 +300,11 @@ const App = () => {
     <div className="max-w-7xl mx-auto py-16 px-6 lg:px-8 mt-16 lg:mt-0">
       <header className="mb-16 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 animate-slide-up">
         <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight">My Library</h1>
-        <div className="bg-white px-8 py-4 rounded-3xl shadow-sm text-sm font-extrabold text-slate-900 border border-slate-100">{stories.length} Items</div>
+        <div className="bg-white px-8 py-4 rounded-3xl shadow-sm text-sm font-extrabold text-slate-900 border border-slate-100">{stories.length} Chronicles</div>
       </header>
       {stories.length === 0 ? (
         <div className="modern-card py-40 flex flex-col items-center justify-center animate-slide-up">
+          <div className="text-8xl mb-8 opacity-20">📚</div>
           <h2 className="text-3xl font-extrabold text-slate-300">Your collection is empty</h2>
           <button onClick={() => setView('generator')} className="mt-10 px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-bold shadow-2xl">Start Writing</button>
         </div>
@@ -307,18 +312,19 @@ const App = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {stories.map((story, i) => (
             <div key={story.id} className="modern-card overflow-hidden flex flex-col group animate-slide-up h-full" style={{ animationDelay: `${i * 0.1}s` }}>
-              <div className="h-72 relative overflow-hidden">
+              <div className="h-72 relative overflow-hidden bg-slate-100">
                 <img src={story.pages[0]?.imageUrl || 'https://images.unsplash.com/photo-1543004223-249377484407'} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 <div className="absolute bottom-8 left-8 right-8">
-                   <h3 className="text-2xl font-extrabold text-white line-clamp-2">{story.title}</h3>
+                   <span className="text-[9px] font-black text-white/50 tracking-widest uppercase mb-2 block">{story.genre}</span>
+                   <h3 className="text-2xl font-extrabold text-white line-clamp-2 leading-tight">{story.title}</h3>
                 </div>
               </div>
               <div className="p-10 flex-grow flex flex-col">
-                <button onClick={() => openStory(story)} className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-extrabold text-sm mb-4">Read Book</button>
+                <button onClick={() => openStory(story)} className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-extrabold text-sm mb-4 active:scale-95 transition-all">Read Chronicle</button>
                 <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => exportToPDF(story)} className="bg-slate-50 text-slate-600 py-4 rounded-[1.5rem] font-bold text-xs">Export PDF</button>
-                  <button onClick={() => deleteStory(story.id)} className="bg-red-50 text-red-400 py-4 rounded-[1.5rem] font-bold text-xs">Delete</button>
+                  <button onClick={() => exportToPDF(story)} className="bg-slate-50 text-slate-600 py-4 rounded-[1.5rem] font-bold text-xs hover:bg-slate-100 transition-all">Export PDF</button>
+                  <button onClick={() => deleteStory(story.id)} className="bg-red-50 text-red-400 py-4 rounded-[1.5rem] font-bold text-xs hover:bg-red-100 transition-all">Delete</button>
                 </div>
               </div>
             </div>
@@ -330,76 +336,100 @@ const App = () => {
 
   const renderReader = () => {
     // White screen safety check
-    if (!activeStory || !activeStory.pages || activeStory.pages.length === 0) {
+    const page = activeStory?.pages[currentPageIndex];
+    if (!activeStory || !page) {
       return (
         <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center flex-col text-white gap-6">
           <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-          <p className="text-xl font-bold tracking-widest uppercase animate-pulse">Initializing Folio...</p>
+          <p className="text-xl font-bold tracking-widest uppercase animate-pulse">Binding Folio...</p>
           <button onClick={() => setView('library')} className="mt-8 px-8 py-3 bg-white/10 rounded-full text-xs font-bold">Back to Library</button>
         </div>
       );
     }
-    const page = activeStory.pages[currentPageIndex];
+
     return (
       <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden animate-in fade-in duration-700">
-        <div className="h-24 bg-white/5 backdrop-blur-2xl border-b border-white/10 px-6 lg:px-10 flex items-center justify-between shrink-0">
+        <div className="h-20 bg-white/5 backdrop-blur-2xl border-b border-white/10 px-6 lg:px-10 flex items-center justify-between shrink-0">
           <button onClick={() => { stopAudio(); setView('library'); }} className="text-white/60 hover:text-white transition-all font-black text-[10px] tracking-[0.4em]">← LIBRARY</button>
           <div className="hidden md:block text-center flex-1 mx-8 overflow-hidden">
-            <h2 className="text-white font-extrabold text-xl truncate uppercase">{activeStory.title}</h2>
+            <h2 className="text-white font-extrabold text-lg truncate uppercase tracking-widest">{activeStory.title}</h2>
           </div>
-          <button onClick={() => exportToPDF(activeStory)} className="px-8 py-3 bg-white text-slate-900 rounded-full font-black text-[10px] tracking-widest">EXPORT VOLUME</button>
+          <button onClick={() => exportToPDF(activeStory)} className="px-6 py-2 bg-white text-slate-900 rounded-full font-black text-[10px] tracking-widest active:scale-95 transition-all">DOWNLOAD PDF</button>
         </div>
-        <div className="flex-grow flex items-center justify-center p-4 lg:p-12 relative overflow-hidden">
-          <button disabled={currentPageIndex === 0} onClick={() => { stopAudio(); setCurrentPageIndex(p => p - 1); }} className={`absolute left-4 lg:left-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === 0 ? 'opacity-0' : 'hover:bg-white/15'}`}>←</button>
-          <button disabled={currentPageIndex === activeStory.pages.length - 1} onClick={() => { stopAudio(); setCurrentPageIndex(p => p + 1); }} className={`absolute right-4 lg:right-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === activeStory.pages.length - 1 ? 'opacity-0' : 'hover:bg-white/15'}`}>→</button>
-          <div className="w-full max-w-[1500px] h-full max-h-[850px] bg-[#fdfbf7] rounded-[2.5rem] lg:rounded-[3.5rem] overflow-hidden flex flex-col lg:flex-row shadow-2xl relative animate-slide-up border-x-[1.25rem] border-slate-900/40">
-            {/* Visual Part - Left Side */}
-            <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-slate-900/5 relative overflow-hidden flex-shrink-0">
-              {page?.imageUrl && <img src={page.imageUrl} className="w-full h-full object-cover animate-in fade-in zoom-in-110 duration-1000" />}
-              <div className="hidden lg:block absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/10 to-transparent pointer-events-none" />
+        
+        <div className="flex-grow flex items-center justify-center p-0 lg:p-10 relative overflow-hidden">
+          {/* Navigation Controls */}
+          <button disabled={currentPageIndex === 0} onClick={() => { stopAudio(); setCurrentPageIndex(p => p - 1); }} className={`absolute left-4 lg:left-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === 0 ? 'opacity-0 pointer-events-none' : 'hover:bg-white/15 active:scale-90'}`}>←</button>
+          <button disabled={currentPageIndex === activeStory.pages.length - 1} onClick={() => { stopAudio(); setCurrentPageIndex(p => p + 1); }} className={`absolute right-4 lg:right-12 w-20 h-20 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white text-3xl transition-all z-20 ${currentPageIndex === activeStory.pages.length - 1 ? 'opacity-0 pointer-events-none' : 'hover:bg-white/15 active:scale-90'}`}>→</button>
+          
+          {/* Book Container - Immersive Full Screen side-by-side */}
+          <div className="w-full h-full max-w-[1700px] max-h-[900px] bg-white rounded-none lg:rounded-[3rem] overflow-hidden flex flex-col lg:flex-row shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] relative animate-slide-up border-x-[1px] border-white/10">
+            
+            {/* Visual Part - Left Side (Full Screen side) */}
+            <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-slate-900 relative overflow-hidden flex-shrink-0">
+              {page?.imageUrl && <img src={page.imageUrl} className="w-full h-full object-cover animate-in fade-in zoom-in-110 duration-1000" alt="Story Illustration" />}
+              {/* Spine Shadow Effect - Simulated Depth */}
+              <div className="hidden lg:block absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-black/40 via-black/10 to-transparent pointer-events-none" />
             </div>
-            {/* Narrative Part - Right Side */}
-            <div className="w-full lg:w-1/2 h-1/2 lg:h-full p-8 lg:p-20 xl:p-24 flex flex-col relative overflow-y-auto no-scrollbar bg-white">
-              <div className="hidden lg:block absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/5 to-transparent pointer-events-none" />
-              <div className="flex justify-between items-center mb-12 relative z-10 shrink-0">
-                <span className="text-[11px] font-black text-slate-300 tracking-[0.5em] uppercase">PAGE {currentPageIndex + 1}</span>
-                {page?.audioData && <button onClick={() => isNarrating ? stopAudio() : playNarration(page.audioData!)} className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center transition-all ${isNarrating ? 'bg-slate-900 text-white animate-pulse' : 'bg-white text-slate-400 border border-slate-100'}`}>{isNarrating ? '■' : '▶'}</button>}
+
+            {/* Narrative Part - Right Side (Paper Texture) */}
+            <div className="w-full lg:w-1/2 h-1/2 lg:h-full p-10 lg:p-24 xl:p-32 flex flex-col relative overflow-y-auto no-scrollbar bg-[#fdfbf7] paper-texture">
+              {/* Spine Inner Shadow - Simulated Depth */}
+              <div className="hidden lg:block absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black/20 via-black/5 to-transparent pointer-events-none" />
+              
+              <div className="flex justify-between items-center mb-16 relative z-10 shrink-0">
+                <span className="text-[11px] font-black text-slate-400 tracking-[0.5em] uppercase">FOLIO {currentPageIndex + 1}</span>
+                {page?.audioData && (
+                  <button 
+                    onClick={() => isNarrating ? stopAudio() : playNarration(page.audioData!)} 
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-xl ${isNarrating ? 'bg-slate-900 text-white animate-pulse' : 'bg-white text-slate-900 hover:scale-110 border border-slate-100'}`}
+                  >
+                    {isNarrating ? '■' : '▶'}
+                  </button>
+                )}
               </div>
+              
               <div className="flex-grow flex flex-col relative z-10">
-                <div className="prose prose-xl lg:prose-2xl max-w-none font-crimson text-slate-800 leading-relaxed drop-cap selection:bg-slate-100">
+                <div className="prose prose-xl lg:prose-2xl max-w-none font-crimson text-slate-900 leading-[1.8] drop-cap selection:bg-amber-100">
                   <ReactMarkdown>{page?.text || ''}</ReactMarkdown>
                 </div>
               </div>
-              <div className="mt-12 text-center relative z-10 shrink-0">
-                <span className="text-xs font-black text-slate-200 tracking-[0.5em] uppercase">{currentPageIndex + 1} / {activeStory.pages.length}</span>
+              
+              <div className="mt-20 text-center relative z-10 shrink-0">
+                <span className="text-[10px] font-black text-slate-300 tracking-[0.6em] uppercase">— {currentPageIndex + 1} —</span>
               </div>
             </div>
           </div>
         </div>
-        <div className="h-2 bg-white/5 w-full relative shrink-0"><div className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_20px_white]" style={{ width: `${((currentPageIndex + 1) / activeStory.pages.length) * 100}%` }} /></div>
+
+        {/* Global Progress Bar */}
+        <div className="h-1.5 bg-white/5 w-full relative shrink-0">
+          <div className="h-full bg-white transition-all duration-700 ease-out shadow-[0_0_20px_white]" style={{ width: `${((currentPageIndex + 1) / activeStory.pages.length) * 100}%` }} />
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen lg:pl-64 transition-all">
+    <div className="min-h-screen lg:pl-64 transition-all selection:bg-slate-900 selection:text-white">
       <Sidebar currentView={view} onViewChange={(v) => { stopAudio(); setView(v); }} />
       <main className="min-h-screen bg-[#f8fafc]">
         {view === 'generator' && renderGenerator()}
         {view === 'library' && renderLibrary()}
         {view === 'reader' && renderReader()}
       </main>
+      
       {isGenerating && (
-        <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center text-white">
-          <div className="w-56 h-56 mb-14 relative flex items-center justify-center">
-             <svg className="w-full h-full animate-spin duration-[3000ms]" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="2" />
-                <circle cx="50" cy="50" r="46" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeDasharray="60 200" />
+        <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center text-white p-10 text-center">
+          <div className="w-64 h-64 mb-16 relative flex items-center justify-center">
+             <svg className="w-full h-full animate-spin duration-[4000ms]" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                <circle cx="50" cy="50" r="46" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeDasharray="80 200" />
              </svg>
-             <div className="absolute inset-0 flex items-center justify-center"><span className="text-7xl animate-pulse">📖</span></div>
+             <div className="absolute inset-0 flex items-center justify-center"><span className="text-8xl animate-pulse">📖</span></div>
           </div>
-          <h2 className="text-6xl font-extrabold tracking-[0.4em] mb-6 uppercase text-center">Manifesting...</h2>
-          <p className="text-slate-300 font-crimson italic text-4xl text-center leading-relaxed opacity-80 px-12">"{generationProgress.step}"</p>
+          <h2 className="text-6xl font-black tracking-[0.4em] mb-8 uppercase">Manifesting...</h2>
+          <p className="text-slate-400 font-crimson italic text-4xl leading-relaxed opacity-80 max-w-2xl">"{generationProgress.step}"</p>
         </div>
       )}
     </div>

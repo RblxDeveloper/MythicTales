@@ -9,7 +9,7 @@ import { Story, CastMember, Genre, Mood, StoryPage, StoryStyle } from "./types";
 const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API Key is missing. Please ensure process.env.API_KEY is set.");
+    throw new Error("API Key is missing. Please ensure process.env.API_KEY is set in Vercel.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -41,8 +41,9 @@ export const generateStoryContent = async (
        - "imagePrompt": A highly detailed descriptive prompt for an illustrator that captures the scene on this page. Focus on lighting, composition, and mood consistent with the ${style} theme.
   `;
 
+  // Switched to gemini-3-flash-preview to avoid quota issues on the free tier
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: "Write the content now.",
     config: {
       systemInstruction,
