@@ -15,7 +15,7 @@ import { generateStoryContent, generateImageForPage, generateNarration } from '.
 import { exportToPDF } from './components/PDFExporter';
 import Sidebar from './components/Sidebar';
 
-const DB_NAME = 'MythosPersonalArchives';
+const DB_NAME = 'MythicTalesPersonalArchives';
 const STORE_NAME = 'chronicles';
 
 function decodeBase64(base64: string): Uint8Array {
@@ -268,13 +268,15 @@ const App = () => {
             <input type="range" min="3" max="10" value={pageCount} onChange={(e) => setPageCount(parseInt(e.target.value))} />
           </div>
 
-          <button 
-            onClick={handleGenerate} 
-            className="w-full bg-slate-900 text-white py-5 rounded-2xl font-inter font-bold text-sm uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-[0.98] mt-2 group"
-          >
-            Manifest Story
-            <span className="ml-2 group-hover:translate-x-1 inline-block transition-transform">→</span>
-          </button>
+          <div className="hidden lg:block">
+            <button 
+              onClick={handleGenerate} 
+              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-inter font-bold text-sm uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-[0.98] mt-2 group"
+            >
+              Manifest Story
+              <span className="ml-2 group-hover:translate-x-1 inline-block transition-transform">→</span>
+            </button>
+          </div>
         </div>
 
         <div className="lg:col-span-8 flex flex-col gap-10">
@@ -336,6 +338,16 @@ const App = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="lg:hidden mt-4">
+        <button 
+          onClick={handleGenerate} 
+          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-inter font-bold text-sm uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-[0.98] group"
+        >
+          Manifest Story
+          <span className="ml-2 group-hover:translate-x-1 inline-block transition-transform">→</span>
+        </button>
       </div>
     </div>
   );

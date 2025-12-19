@@ -59,5 +59,5 @@ export const exportToPDF = async (story: Story) => {
     doc.text(`— ${i + 1} —`, splitPoint + (splitPoint / 2), height - 15, { align: 'center' });
   }
 
-  doc.save(`${story.title.replace(/\s+/g, '_')}_Mythos.pdf`);
+  doc.save(`${story.title.replace(/\s+/g, '_')}_MythicTales.pdf`);
 };

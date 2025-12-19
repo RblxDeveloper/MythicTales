@@ -20,8 +20,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-lg shadow-lg shrink-0 text-white">📖</div>
           <div className="flex flex-col">
-            <span className="font-inter font-black text-sm tracking-tighter leading-none text-[#000000]">MYTHOS</span>
-            <span className="text-[6px] font-inter font-black uppercase tracking-[0.2em] text-slate-300 leading-none mt-1">Personal Edition</span>
+            <span className="font-inter font-black text-sm tracking-tighter leading-none text-[#000000]">MythicTales</span>
+            <span className="text-[6px] font-inter font-black uppercase tracking-[0.2em] text-slate-300 leading-none mt-1">Personal Stories</span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -44,8 +44,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
           <div className="w-14 h-14 bg-black rounded-[1.25rem] flex items-center justify-center text-2xl shadow-2xl shrink-0 border-4 border-white mb-4 text-white">
             <span className="drop-shadow-sm">📖</span>
           </div>
-          <h1 className="font-inter font-black text-2xl tracking-tighter text-black leading-none uppercase">MYTHOS</h1>
-          <p className="text-[8px] font-inter uppercase font-black text-slate-300 tracking-[0.4em] mt-2 leading-none">Personal Edition</p>
+          <h1 className="font-inter font-black text-2xl tracking-tighter text-black leading-none uppercase">MythicTales</h1>
+          <p className="text-[8px] font-inter uppercase font-black text-slate-300 tracking-[0.4em] mt-2 leading-none">Personal Stories</p>
         </div>
 
         <nav className="space-y-6 flex-grow">
