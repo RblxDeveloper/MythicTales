@@ -149,7 +149,7 @@ const App = () => {
   const handleGenerate = async () => {
     if (isGenerating) return;
     setIsGenerating(true);
-    setGenerationProgress({ current: 0, total: pageCount, step: 'Drafting your epic...' });
+    setGenerationProgress({ current: 0, total: pageCount, step: 'Formulating narrative arc...' });
     
     try {
       const result = await generateStoryContent(genre, mood, pageCount, cast, plot, style);
@@ -192,7 +192,7 @@ const App = () => {
       newStory.pages = finalPages;
       newStory.isGeneratingImages = false;
 
-      // Robust state transition
+      // Update state in sequence to ensure activeStory is ready for render
       setStories(prev => [newStory, ...prev]);
       setActiveStory(newStory);
       setCurrentPageIndex(0);
@@ -282,7 +282,6 @@ const App = () => {
               </div>
             </div>
             
-            {/* Hidden on mobile to place button at the very bottom */}
             <button 
               onClick={handleGenerate}
               disabled={isGenerating}
@@ -352,7 +351,7 @@ const App = () => {
           <button 
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="lg:hidden w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl active:scale-[0.97] disabled:opacity-50 mt-4"
+            className="lg:hidden w-full py-6 bg-slate-900 text-white rounded-[2rem] font-bold text-lg hover:bg-slate-800 transition-all shadow-2xl active:scale-[0.97] disabled:opacity-50 mt-4 order-last"
           >
             {isGenerating ? 'Drafting Story...' : 'Create Story'}
           </button>
@@ -423,7 +422,7 @@ const App = () => {
   );
 
   const renderReader = () => {
-    // Robust check for state synchronization
+    // Critical safety check for white screen issue
     if (!activeStory || !activeStory.pages || activeStory.pages.length === 0) {
       return (
         <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center flex-col text-white gap-6">
@@ -444,8 +443,8 @@ const App = () => {
             <span className="text-xl group-hover:-translate-x-1 transition-transform">←</span> LIBRARY
           </button>
           <div className="hidden md:block text-center flex-1 mx-8 overflow-hidden">
-            <h2 className="text-white font-extrabold tracking-tight text-xl truncate">{activeStory.title}</h2>
-            <p className="text-[10px] text-white/30 font-black tracking-widest uppercase mt-1">PAGE {currentPageIndex + 1}</p>
+            <h2 className="text-white font-extrabold tracking-tight text-xl truncate uppercase">{activeStory.title}</h2>
+            <p className="text-[10px] text-white/30 font-black tracking-widest uppercase mt-1">FOLIO {currentPageIndex + 1}</p>
           </div>
           <div className="flex items-center gap-6">
             <button onClick={() => exportToPDF(activeStory)} className="px-8 py-3 bg-white text-slate-900 rounded-full font-black text-[10px] tracking-widest hover:bg-slate-200 transition-all shadow-xl shadow-black/50 active:scale-95">EXPORT VOLUME</button>
@@ -487,7 +486,7 @@ const App = () => {
               
               <div className="flex justify-between items-center mb-8 lg:mb-12 relative z-10 shrink-0">
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-black text-slate-300 tracking-[0.5em] uppercase">FOLIO {currentPageIndex + 1}</span>
+                  <span className="text-[11px] font-black text-slate-300 tracking-[0.5em] uppercase">PAGE {currentPageIndex + 1}</span>
                   <span className="text-[9px] font-bold text-slate-200 uppercase tracking-widest mt-1">{wordCount} WORDS</span>
                 </div>
                 {page?.audioData && (
@@ -536,7 +535,7 @@ const App = () => {
           <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-500/30 via-transparent to-transparent"></div>
           
           <div className="w-40 h-40 lg:w-56 lg:h-56 mb-14 relative flex items-center justify-center">
-             {/* Circular Progress Design */}
+             {/* High-fidelity Circular Progress Design */}
              <svg className="w-full h-full animate-spin duration-[3000ms]" viewBox="0 0 100 100">
                 <circle 
                   cx="50" cy="50" r="46" 
